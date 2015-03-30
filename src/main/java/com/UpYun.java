@@ -1,5 +1,7 @@
 package main.java.com;
 
+import com.sun.tools.doclets.internal.toolkit.util.DocFinder;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -96,6 +98,8 @@ public class UpYun {
 	protected String fileType = null;
 	protected String fileSize = null;
 	protected String fileDate = null;
+
+    private SimpleDateFormat formater;
 
 	/**
 	 * 初始化 UpYun 存储接口
@@ -283,13 +287,13 @@ public class UpYun {
 	 * 
 	 * @param filePath
 	 *            文件路径（包含文件名）
-	 * @param datas
+	 * @param inData
 	 *            文件内容
 	 * 
 	 * @return true or false
 	 */
-	public boolean writeFile(String filePath, byte[] datas) {
-		return writeFile(filePath, datas, false, null);
+	public boolean writeFile(String filePath, byte[] inData) {
+		return writeFile(filePath, inData, false, null);
 	}
 
 	/**
@@ -297,15 +301,15 @@ public class UpYun {
 	 * 
 	 * @param filePath
 	 *            文件路径（包含文件名）
-	 * @param datas
+	 * @param inData
 	 *            文件内容
 	 * @param auto
 	 *            是否自动创建父级目录(最多10级)
 	 * 
 	 * @return true or false
 	 */
-	public boolean writeFile(String filePath, byte[] datas, boolean auto) {
-		return writeFile(filePath, datas, auto, null);
+	public boolean writeFile(String filePath, byte[] inData, boolean auto) {
+		return writeFile(filePath, inData, auto, null);
 	}
 
 	/**
@@ -313,7 +317,7 @@ public class UpYun {
 	 * 
 	 * @param filePath
 	 *            文件路径（包含文件名）
-	 * @param datas
+	 * @param inData
 	 *            文件内容
 	 * @param auto
 	 *            是否自动创建父级目录(最多10级)
@@ -322,10 +326,10 @@ public class UpYun {
 	 * 
 	 * @return true or false
 	 */
-	public boolean writeFile(String filePath, byte[] datas, boolean auto,
+	public boolean writeFile(String filePath, byte[] inData, boolean auto,
 			Map<String, String> params) {
 
-		return HttpAction(METHOD_PUT, formatPath(filePath), datas, null, auto,
+		return HttpActionStream(METHOD_PUT, formatPath(filePath), inData, null, auto,
 				params) != null;
 	}
 
@@ -335,12 +339,12 @@ public class UpYun {
 	 * @param filePath
 	 *            文件路径（包含文件名）
 	 * @param String
-	 *            datas 文件内容
+	 *            inData 文件内容
 	 * 
 	 * @return true or false
 	 */
-	public boolean writeFile(String filePath, String datas) {
-		return writeFile(filePath, datas, false, null);
+	public boolean writeFile(String filePath, String inData) {
+		return writeFile(filePath, inData, false, null);
 	}
 
 	/**
@@ -349,14 +353,14 @@ public class UpYun {
 	 * @param filePath
 	 *            文件路径（包含文件名）
 	 * @param String
-	 *            datas 文件内容
+	 *            inData 文件内容
 	 * @param auto
 	 *            是否自动创建父级目录(最多10级)
 	 * 
 	 * @return true or false
 	 */
-	public boolean writeFile(String filePath, String datas, boolean auto) {
-		return writeFile(filePath, datas, auto, null);
+	public boolean writeFile(String filePath, String inData, boolean auto) {
+		return writeFile(filePath, inData, auto, null);
 	}
 
 	/**
@@ -365,7 +369,7 @@ public class UpYun {
 	 * @param filePath
 	 *            文件路径（包含文件名）
 	 * @param String
-	 *            datas 文件内容
+	 *            inData 文件内容
 	 * @param auto
 	 *            是否自动创建父级目录(最多10级)
 	 * @param params
@@ -373,13 +377,13 @@ public class UpYun {
 	 * 
 	 * @return true or false
 	 */
-	public boolean writeFile(String filePath, String datas, boolean auto,
+	public boolean writeFile(String filePath, String inData, boolean auto,
 			Map<String, String> params) {
 
 		boolean result = false;
 
 		try {
-			result = writeFile(filePath, datas.getBytes(UTF8), auto, params);
+			result = writeFile(filePath, inData.getBytes(UTF8), auto, params);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -555,7 +559,7 @@ public class UpYun {
 	 */
 	public boolean readFile(String filePath, File file) {
 
-		String result = HttpAction(METHOD_GET, formatPath(filePath), null,
+		String result = HttpActionFile(METHOD_GET, formatPath(filePath), null,
 				file, false);
 
 		return "".equals(result);
@@ -626,7 +630,7 @@ public class UpYun {
 		Map<String, String> params = new HashMap<String, String>(1);
 		params.put(PARAMS.KEY_MAKE_DIR.getValue(), "true");
 
-		String result = HttpAction(METHOD_PUT, formatPath(path), null, null,
+		String result = HttpActionStream(METHOD_PUT, formatPath(path), null, null,
 				auto, params);
 
 		return result != null;
@@ -649,11 +653,11 @@ public class UpYun {
 
 		List<FolderItem> list = new LinkedList<FolderItem>();
 
-		String[] datas = result.split("\n");
+		String[] data = result.split("\n");
 
-		for (int i = 0; i < datas.length; i++) {
-			if (datas[i].indexOf("\t") > 0) {
-				list.add(new FolderItem(datas[i]));
+		for (int i = 0; i < data.length; i++) {
+			if (data[i].indexOf("\t") > 0) {
+				list.add(new FolderItem(data[i]));
 			}
 		}
 		return list;
@@ -784,10 +788,12 @@ public class UpYun {
 	 * 
 	 * @return GMT 格式时间戳
 	 */
-	private String getGMTDate() {
-		SimpleDateFormat formater = new SimpleDateFormat(
-				"EEE, d MMM yyyy HH:mm:ss 'GMT'", Locale.US);
-		formater.setTimeZone(TimeZone.getTimeZone("GMT"));
+	private synchronized String getGMTDate() {
+        if (formater == null) {
+            formater = new SimpleDateFormat(
+                    "EEE, d MMM yyyy HH:mm:ss 'GMT'", Locale.US);
+            formater.setTimeZone(TimeZone.getTimeZone("GMT"));
+        }
 		return formater.format(new Date());
 	}
 
@@ -811,16 +817,16 @@ public class UpYun {
 
 	/**
 	 * 连接处理逻辑
-	 * 
+	 *
 	 * @param method
 	 *            请求方式 {GET, POST, PUT, DELETE}
 	 * @param uri
 	 *            请求地址
-	 * 
+	 *
 	 * @return 请求结果（字符串）或 null
 	 */
 	private String HttpAction(String method, String uri) {
-		return HttpAction(method, uri, null, null, false);
+		return HttpActionStream(method, uri, null, null, false);
 	}
 
 	/**
@@ -830,7 +836,7 @@ public class UpYun {
 	 *            请求方式 {GET, POST, PUT, DELETE}
 	 * @param uri
 	 *            请求地址
-	 * @param datas
+	 * @param inData
 	 *            该请求所需发送数据（可为 null）
 	 * @param outFile
 	 *            文件描述符（可为 null）
@@ -839,11 +845,33 @@ public class UpYun {
 	 * 
 	 * @return 请求结果（字符串）或 null
 	 */
-	private String HttpAction(String method, String uri, byte[] datas,
+	private String HttpActionFile(String method, String uri, byte[] inData,
 			File outFile, boolean auto) {
 
-		return HttpAction(method, uri, datas, outFile, auto, null);
+		return HttpActionFile(method, uri, inData, outFile, auto, null);
 	}
+
+    /**
+     * 连接处理逻辑
+     *
+     * @param method
+     *            请求方式 {GET, POST, PUT, DELETE}
+     * @param uri
+     *            请求地址
+     * @param inData
+     *            该请求所需发送数据（可为 null）
+     * @param outStream
+     *            输出流（可为 null）
+     * @param auto
+     *            自动创建父级目录(最多10级)
+     *
+     * @return 请求结果（字符串）或 null
+     */
+    private String HttpActionStream(String method, String uri, byte[] inData,
+                              OutputStream outStream, boolean auto) {
+
+        return HttpActionStream(method, uri, inData, outStream, auto, null);
+    }
 
 	/**
 	 * 连接处理逻辑
@@ -852,7 +880,7 @@ public class UpYun {
 	 *            请求方式 {GET, POST, PUT, DELETE}
 	 * @param uri
 	 *            请求地址
-	 * @param datas
+	 * @param inData
 	 *            该请求所需发送数据（可为 null）
 	 * @param outFile
 	 *            文件描述符（可为 null）
@@ -863,135 +891,166 @@ public class UpYun {
 	 * 
 	 * @return 请求结果（字符串）或 null
 	 */
-	private String HttpAction(String method, String uri, byte[] datas,
+	private String HttpActionFile(String method, String uri, byte[] inData,
 			File outFile, boolean auto, Map<String, String> params) {
 
-		String result = null;
+        OutputStream outStream = null;
+        if (outFile != null) {
+            try {
+                outStream = new FileOutputStream(outFile);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
 
-		HttpURLConnection conn = null;
-		OutputStream os = null;
-		InputStream is = null;
-
-		try {
-			// 获取链接
-			URL url = new URL("http://" + apiDomain + uri);
-			conn = (HttpURLConnection) url.openConnection();
-
-			// 设置必要参数
-			conn.setConnectTimeout(timeout);
-			conn.setRequestMethod(method);
-			conn.setUseCaches(false);
-			if(!method.equals(METHOD_DELETE) && !method.equals(METHOD_HEAD) && !method.equals(METHOD_GET)){
-				conn.setDoOutput(true);
-			}
-
-			// 设置时间
-			conn.setRequestProperty(DATE, getGMTDate());
-
-			// 是否自动创建父级目录
-			if (auto) {
-				conn.setRequestProperty(MKDIR, "true");
-			}
-
-			long contentLength = 0;
-			
-			if (datas == null){
-				conn.setRequestProperty(CONTENT_LENGTH, "0");
-			} else {
-				contentLength = datas.length;
-				conn.setRequestProperty(CONTENT_LENGTH,
-						String.valueOf(datas.length));
-
-				// 设置文件的 MD5 参数
-				if (!isEmpty(this.contentMD5)) {
-					conn.setRequestProperty(CONTENT_MD5, this.contentMD5);
-					this.contentMD5 = null;
-				}
-				// 设置文件的访问密钥
-				if (!isEmpty(this.fileSecret)) {
-					conn.setRequestProperty(CONTENT_SECRET, this.fileSecret);
-					this.fileSecret = null;
-				}
-			}
-
-			// 设置签名
-			conn.setRequestProperty(AUTHORIZATION,
-					sign(conn, uri, contentLength));
-
-			// 是否是创建文件目录
-			boolean isFolder = false;
-
-			// 设置额外的参数，如图片缩略图等
-			if (params != null && !params.isEmpty()) {
-
-				isFolder = !isEmpty(params.get(PARAMS.KEY_MAKE_DIR.getValue()));
-
-				for (Map.Entry<String, String> param : params.entrySet()) {
-					conn.setRequestProperty(param.getKey(), param.getValue());
-				}
-			}
-
-			// 创建链接
-			conn.connect();
-
-			if (datas != null) {
-				os = conn.getOutputStream();
-				os.write(datas);
-				os.flush();
-			}
-
-			if (isFolder) {
-				os = conn.getOutputStream();
-				os.flush();
-			}
-
-			if (outFile == null) {
-
-				result = getText(conn, METHOD_HEAD.equals(method));
-
-			} else {
-				result = "";
-
-				os = new FileOutputStream(outFile);
-				byte[] data = new byte[4096];
-				int temp = 0;
-
-				is = conn.getInputStream();
-
-				while ((temp = is.read(data)) != -1) {
-					os.write(data, 0, temp);
-				}
-			}
-		} catch (IOException e) {
-			if (debug)
-				e.printStackTrace();
-
-			// 操作失败
-			return null;
-
-		} finally {
-
-			try {
-				if (os != null) {
-					os.close();
-					os = null;
-				}
-				if (is != null) {
-					is.close();
-					is = null;
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-
-			if (conn != null) {
-				conn.disconnect();
-				conn = null;
-			}
-		}
-
-		return result;
+        return HttpActionStream(method, uri, inData, outStream, auto, params);
 	}
+    /**
+     * 连接处理逻辑
+     *
+     * @param method
+     *            请求方式 {GET, POST, PUT, DELETE}
+     * @param uri
+     *            请求地址
+     * @param inData
+     *            该请求所需发送数据（可为 null）
+     * @param outStream
+     *            输出流（可为 null）
+     * @param auto
+     *            自动创建父级目录(最多10级)
+     * @param params
+     *            额外参数
+     *
+     * @return 请求结果（字符串）或 null
+     */
+    private String HttpActionStream(String method, String uri, byte[] inData,
+                              OutputStream outStream, boolean auto, Map<String, String> params) {
+
+        String result = null;
+
+        HttpURLConnection conn = null;
+        OutputStream os = null;
+        InputStream is = null;
+
+        try {
+            // 获取链接
+            URL url = new URL("http://" + apiDomain + uri);
+            conn = (HttpURLConnection) url.openConnection();
+
+            // 设置必要参数
+            conn.setConnectTimeout(timeout);
+            conn.setRequestMethod(method);
+            conn.setUseCaches(false);
+            if(!method.equals(METHOD_DELETE) && !method.equals(METHOD_HEAD) && !method.equals(METHOD_GET)){
+                conn.setDoOutput(true);
+            }
+
+            // 设置时间
+            conn.setRequestProperty(DATE, getGMTDate());
+
+            // 是否自动创建父级目录
+            if (auto) {
+                conn.setRequestProperty(MKDIR, "true");
+            }
+
+            long contentLength = 0;
+
+            if (inData == null){
+                conn.setRequestProperty(CONTENT_LENGTH, "0");
+            } else {
+                contentLength = inData.length;
+                conn.setRequestProperty(CONTENT_LENGTH,
+                        String.valueOf(inData.length));
+
+                // 设置文件的 MD5 参数
+                if (!isEmpty(this.contentMD5)) {
+                    conn.setRequestProperty(CONTENT_MD5, this.contentMD5);
+                    this.contentMD5 = null;
+                }
+                // 设置文件的访问密钥
+                if (!isEmpty(this.fileSecret)) {
+                    conn.setRequestProperty(CONTENT_SECRET, this.fileSecret);
+                    this.fileSecret = null;
+                }
+            }
+
+            // 设置签名
+            conn.setRequestProperty(AUTHORIZATION,
+                    sign(conn, uri, contentLength));
+
+            // 是否是创建文件目录
+            boolean isFolder = false;
+
+            // 设置额外的参数，如图片缩略图等
+            if (params != null && !params.isEmpty()) {
+
+                isFolder = !isEmpty(params.get(PARAMS.KEY_MAKE_DIR.getValue()));
+
+                for (Map.Entry<String, String> param : params.entrySet()) {
+                    conn.setRequestProperty(param.getKey(), param.getValue());
+                }
+            }
+
+            // 创建链接
+            conn.connect();
+
+            if (inData != null) {
+                os = conn.getOutputStream();
+                os.write(inData);
+                os.flush();
+            }
+
+            if (isFolder) {
+                os = conn.getOutputStream();
+                os.flush();
+            }
+
+            if (outStream == null) {
+
+                result = getText(conn, METHOD_HEAD.equals(method));
+
+            } else {
+                result = "";
+
+                byte[] data = new byte[4096];
+                int temp;
+
+                is = conn.getInputStream();
+
+                while ((temp = is.read(data)) != -1) {
+                    outStream.write(data, 0, temp);
+                }
+            }
+        } catch (IOException e) {
+            if (debug)
+                e.printStackTrace();
+
+            // 操作失败
+            return null;
+
+        } finally {
+
+            try {
+                if (outStream != null) {
+                    outStream.close();
+                }
+                if (os != null) {
+                    os.close();
+                }
+                if (is != null) {
+                    is.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+
+        return result;
+    }
 
 	/**
 	 * 获得连接请求的返回数据
@@ -1020,7 +1079,7 @@ public class UpYun {
 				br = new BufferedReader(sr);
 
 				char[] chars = new char[4096];
-				int length = 0;
+				int length;
 
 				while ((length = br.read(chars)) != -1) {
 					text.append(chars, 0, length);
@@ -1045,15 +1104,12 @@ public class UpYun {
 		} finally {
 			if (br != null) {
 				br.close();
-				br = null;
 			}
 			if (sr != null) {
 				sr.close();
-				sr = null;
 			}
 			if (is != null) {
 				is.close();
-				is = null;
 			}
 		}
 
